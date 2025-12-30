@@ -5,7 +5,7 @@
 struct Platform;
 struct ImDrawData;
 struct ImVec4;
-using ImTextureID= void*;
+using ImTextureID = unsigned long long;
 
 struct Renderer
 {

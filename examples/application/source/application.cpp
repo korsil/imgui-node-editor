@@ -89,9 +89,7 @@ void Application::RecreateFontAtlas()
 {
     ImGuiIO& io = ImGui::GetIO();
 
-    IM_DELETE(io.Fonts);
-
-    io.Fonts = IM_NEW(ImFontAtlas);
+    io.Fonts->Clear();
 
     ImFontConfig config;
     config.OversampleH = 4;
@@ -100,8 +98,6 @@ void Application::RecreateFontAtlas()
 
     m_DefaultFont = io.Fonts->AddFontFromFileTTF("data/Play-Regular.ttf", 18.0f, &config);
     m_HeaderFont  = io.Fonts->AddFontFromFileTTF("data/Cuprum-Bold.ttf",  20.0f, &config);
-
-    io.Fonts->Build();
 }
 
 void Application::Frame()
@@ -208,7 +204,7 @@ ImTextureID Application::LoadTexture(const char* path)
         return texture;
     }
     else
-        return nullptr;
+        return 0;
 }
 
 ImTextureID Application::CreateTexture(const void* data, int width, int height)

@@ -14,6 +14,16 @@
 # include <imgui.h>
 # include "imgui_impl_dx11.h"
 # include <d3d11.h>
+# include <algorithm>
+
+
+struct ImTextureDX11
+{
+    ID3D11Texture2D*          pTexture = nullptr;
+    ID3D11ShaderResourceView* pTextureView = nullptr;
+    int                       Width = 0;
+    int                       Height = 0;
+};
 
 
 struct RendererDX11 final
@@ -38,11 +48,14 @@ struct RendererDX11 final
     void CreateRenderTarget();
     void CleanupRenderTarget();
 
+    ImVector<ImTextureDX11>::iterator FindTexture(ImTextureID texture);
+
     Platform*               m_Platform = nullptr;
     ID3D11Device*           m_device = nullptr;
     ID3D11DeviceContext*    m_deviceContext = nullptr;
     IDXGISwapChain*         m_swapChain = nullptr;
     ID3D11RenderTargetView* m_mainRenderTargetView = nullptr;
+    ImVector<ImTextureDX11> m_Textures;
 };
 
 std::unique_ptr<Renderer> CreateRenderer()
@@ -75,6 +88,16 @@ void RendererDX11::Destroy()
         return;
 
     m_Platform->SetRenderer(nullptr);
+
+    // Cleanup textures
+    for (auto& texture : m_Textures)
+    {
+        if (texture.pTextureView)
+            texture.pTextureView->Release();
+        if (texture.pTexture)
+            texture.pTexture->Release();
+    }
+    m_Textures.clear();
 
     ImGui_ImplDX11_Shutdown();
 
@@ -172,24 +195,91 @@ void RendererDX11::CleanupRenderTarget()
     if (m_mainRenderTargetView) { m_mainRenderTargetView->Release(); m_mainRenderTargetView = nullptr; }
 }
 
+ImVector<ImTextureDX11>::iterator RendererDX11::FindTexture(ImTextureID texture)
+{
+    auto textureView = reinterpret_cast<ID3D11ShaderResourceView*>(texture);
+
+    return std::find_if(m_Textures.begin(), m_Textures.end(), [textureView](ImTextureDX11& tex)
+    {
+        return tex.pTextureView == textureView;
+    });
+}
+
 ImTextureID RendererDX11::CreateTexture(const void* data, int width, int height)
 {
-    return ImGui_CreateTexture(data, width, height);
+    m_Textures.resize(m_Textures.size() + 1);
+    ImTextureDX11& texture = m_Textures.back();
+
+    // Create texture
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width = (UINT)width;
+    desc.Height = (UINT)height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags = 0;
+
+    D3D11_SUBRESOURCE_DATA subResource = {};
+    subResource.pSysMem = data;
+    subResource.SysMemPitch = desc.Width * 4;
+    subResource.SysMemSlicePitch = 0;
+
+    HRESULT hr = m_device->CreateTexture2D(&desc, &subResource, &texture.pTexture);
+    if (FAILED(hr))
+        return 0;
+
+    // Create texture view
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = desc.MipLevels;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+
+    hr = m_device->CreateShaderResourceView(texture.pTexture, &srvDesc, &texture.pTextureView);
+    if (FAILED(hr))
+    {
+        texture.pTexture->Release();
+        texture.pTexture = nullptr;
+        return 0;
+    }
+
+    texture.Width = width;
+    texture.Height = height;
+
+    return reinterpret_cast<ImTextureID>(texture.pTextureView);
 }
 
 void RendererDX11::DestroyTexture(ImTextureID texture)
 {
-    return ImGui_DestroyTexture(texture);
+    auto textureIt = FindTexture(texture);
+    if (textureIt == m_Textures.end())
+        return;
+
+    if (textureIt->pTextureView)
+        textureIt->pTextureView->Release();
+    if (textureIt->pTexture)
+        textureIt->pTexture->Release();
+
+    m_Textures.erase(textureIt);
 }
 
 int RendererDX11::GetTextureWidth(ImTextureID texture)
 {
-    return ImGui_GetTextureWidth(texture);
+    auto textureIt = FindTexture(texture);
+    if (textureIt != m_Textures.end())
+        return textureIt->Width;
+    return 0;
 }
 
 int RendererDX11::GetTextureHeight(ImTextureID texture)
 {
-    return ImGui_GetTextureHeight(texture);
+    auto textureIt = FindTexture(texture);
+    if (textureIt != m_Textures.end())
+        return textureIt->Height;
+    return 0;
 }
 
 # endif // RENDERER(IMGUI_DX11)
