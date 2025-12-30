@@ -572,7 +572,7 @@ struct Example:
             if (id)
             {
                 DestroyTexture(id);
-                id = nullptr;
+                id = 0;
             }
         };
 
@@ -878,7 +878,7 @@ struct Example:
         for (int i = 0; i < linkCount; ++i) ImGui::Text("Link (%p)", selectedLinks[i].AsPointer());
         ImGui::Unindent();
 
-        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Z)))
+        if (ImGui::IsKeyPressed(ImGuiKey_Z))
             for (auto& link : m_Links)
                 ed::Flow(link.ID);
 
@@ -1816,9 +1816,9 @@ struct Example:
     const int            m_PinIconSize = 24;
     std::vector<Node>    m_Nodes;
     std::vector<Link>    m_Links;
-    ImTextureID          m_HeaderBackground = nullptr;
-    ImTextureID          m_SaveIcon = nullptr;
-    ImTextureID          m_RestoreIcon = nullptr;
+    ImTextureID          m_HeaderBackground = 0;
+    ImTextureID          m_SaveIcon = 0;
+    ImTextureID          m_RestoreIcon = 0;
     const float          m_TouchTime = 1.0f;
     std::map<ed::NodeId, float, NodeIdLess> m_NodeTouchTime;
     bool                 m_ShowOrdinals = false;
